@@ -1,0 +1,13 @@
+{
+  "provider": "deepseek",
+  "api_format": "openai",
+  "base_url": "https://api.deepseek.com",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "default_model": "deepseek-v4-flash",
+  "endpoint": "/chat/completions",
+  "notes": [
+    "DeepSeek API is OpenAI-compatible.",
+    "Set DEEPSEEK_API_KEY in the environment before running agents.",
+    "Use deepseek-v4-pro for heavier reasoning tasks when needed."
+  ]
+}

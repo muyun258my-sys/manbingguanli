@@ -1,0 +1,44 @@
+{
+  "name": "diagnosis-guidance-agent",
+  "description": "Provides triage severity, department guidance, and conservative next-step recommendations.",
+  "provider": "deepseek",
+  "api_format": "openai",
+  "base_url": "https://api.deepseek.com",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "request": {
+    "model": "deepseek-v4-flash",
+    "temperature": 0.1,
+    "stream": false,
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are the Diagnosis Guidance Agent for a chronic disease health management assistant. Provide triage guidance, severity level, and recommended hospital department based on the supplied symptoms, profile, and upstream agent outputs. Do not diagnose. Use green for self-observation, yellow for recent outpatient care, and red for urgent or emergency care. When uncertain, choose the safer higher severity."
+      }
+    ]
+  },
+  "runtime_contract": {
+    "input": {
+      "query": "string",
+      "profile": "object",
+      "history": "array",
+      "metadata": {
+        "symptom_result": "object | null",
+        "medication_result": "object | null"
+      }
+    },
+    "output": {
+      "agent": "diagnosis_query",
+      "content": "string",
+      "severity": "green | yellow | red",
+      "recommended_department": "string | null",
+      "sources": "array",
+      "confidence": "high | medium | low"
+    }
+  },
+  "safety_rules": [
+    "Red severity should override softer recommendations from other agents.",
+    "For chest pain, dyspnea, fainting, stroke-like symptoms, severe headache, major bleeding, or convulsions, advise urgent medical care.",
+    "Keep department guidance practical and non-diagnostic."
+  ],
+  "code_reference": "app.services.DiagnosisAgent"
+}

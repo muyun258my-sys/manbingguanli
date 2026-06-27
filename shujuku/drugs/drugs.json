@@ -1,0 +1,569 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "慢病健康管理助理 - 药品知识库",
+    "diseases_covered": ["高血压", "糖尿病", "冠心病"],
+    "total_drugs": 38,
+    "fields_explanation": {
+      "id": "药品唯一标识符",
+      "generic_name": "通用名（国际非专利名）",
+      "brand_names": "常见商品名列表",
+      "category": "药物大类",
+      "subcategory": "药物小类",
+      "disease": "适用疾病",
+      "indications": "适应症",
+      "contraindications": "禁忌证",
+      "interactions": "主要药物相互作用（与哪些药同用需注意）",
+      "side_effects": "常见不良反应",
+      "dosage_range": "常规剂量范围（仅供参考）",
+      "notes": "用药特殊注意事项",
+      "risk_level": "联合用药风险等级（low / medium / high）"
+    }
+  },
+
+  "drugs": [
+
+    // ─────────────────────────────────────────
+    // 高血压用药（共 13 条）
+    // ─────────────────────────────────────────
+
+    {
+      "id": "HT001",
+      "generic_name": "氨氯地平",
+      "brand_names": ["络活喜", "压氏达"],
+      "category": "降压药",
+      "subcategory": "CCB（二氢吡啶类钙通道阻滞剂）",
+      "disease": ["高血压", "冠心病"],
+      "indications": "高血压、稳定型心绞痛、变异型心绞痛",
+      "contraindications": ["严重低血压", "心源性休克", "对二氢吡啶类过敏"],
+      "interactions": [
+        {"drug": "地尔硫卓", "risk": "medium", "note": "联用可能加重低血压"},
+        {"drug": "辛伐他汀", "risk": "medium", "note": "氨氯地平可升高辛伐他汀血药浓度，增加肌病风险"},
+        {"drug": "西地那非", "risk": "high", "note": "联用显著降压，可能引起低血压"}
+      ],
+      "side_effects": ["踝部水肿", "头痛", "面部潮红", "心悸"],
+      "dosage_range": "5~10mg/日，每日1次",
+      "notes": "长效CCB，适合合并心绞痛患者；停药需逐渐减量",
+      "risk_level": "low"
+    },
+
+    {
+      "id": "HT002",
+      "generic_name": "硝苯地平控释片",
+      "brand_names": ["拜新同"],
+      "category": "降压药",
+      "subcategory": "CCB（二氢吡啶类钙通道阻滞剂）",
+      "disease": ["高血压"],
+      "indications": "高血压、慢性稳定型心绞痛",
+      "contraindications": ["心源性休克", "急性心肌梗死后1个月内", "不稳定型心绞痛（非控释剂型）"],
+      "interactions": [
+        {"drug": "利福平", "risk": "high", "note": "利福平显著降低硝苯地平血药浓度，疗效减弱"},
+        {"drug": "地高辛", "risk": "medium", "note": "可升高地高辛血药浓度"}
+      ],
+      "side_effects": ["头痛", "面部潮红", "水肿", "便秘"],
+      "dosage_range": "30~60mg/日，每日1次（控释片）",
+      "notes": "控释片不可掰开或嚼碎服用",
+      "risk_level": "low"
+    },
+
+    {
+      "id": "HT003",
+      "generic_name": "培哚普利",
+      "brand_names": ["雅施达"],
+      "category": "降压药",
+      "subcategory": "ACEI（血管紧张素转换酶抑制剂）",
+      "disease": ["高血压", "冠心病"],
+      "indications": "高血压、心力衰竭、冠心病二级预防",
+      "contraindications": ["妊娠", "双侧肾动脉狭窄", "高钾血症", "血管神经性水肿病史", "严重肾功能不全"],
+      "interactions": [
+        {"drug": "ARB类（如缬沙坦）", "risk": "high", "note": "ACEI+ARB联用显著增加肾损伤和高钾血症风险，不推荐联用"},
+        {"drug": "保钾利尿剂（螺内酯）", "risk": "high", "note": "联用可能引起严重高钾血症"},
+        {"drug": "NSAIDs（布洛芬等）", "risk": "medium", "note": "削弱降压效果，增加肾损伤风险"},
+        {"drug": "锂剂", "risk": "medium", "note": "升高锂血药浓度，可能引起锂中毒"}
+      ],
+      "side_effects": ["干咳（最常见，发生率约10%）", "高钾血症", "血管神经性水肿（罕见但严重）", "首剂低血压"],
+      "dosage_range": "4~8mg/日，每日1次",
+      "notes": "若出现顽固性干咳，可换用ARB；用药期间需监测血钾和肾功能",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "HT004",
+      "generic_name": "依那普利",
+      "brand_names": ["悦宁定", "怡那林"],
+      "category": "降压药",
+      "subcategory": "ACEI（血管紧张素转换酶抑制剂）",
+      "disease": ["高血压", "心力衰竭"],
+      "indications": "高血压、心力衰竭",
+      "contraindications": ["妊娠", "双侧肾动脉狭窄", "血管神经性水肿病史"],
+      "interactions": [
+        {"drug": "ARB类", "risk": "high", "note": "同培哚普利"},
+        {"drug": "保钾利尿剂", "risk": "high", "note": "高钾血症风险"},
+        {"drug": "NSAIDs", "risk": "medium", "note": "削弱降压效果"}
+      ],
+      "side_effects": ["干咳", "高钾血症", "血管神经性水肿", "低血压"],
+      "dosage_range": "5~40mg/日，分1~2次服用",
+      "notes": "需监测肾功能和血钾",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "HT005",
+      "generic_name": "缬沙坦",
+      "brand_names": ["代文", "穗悦"],
+      "category": "降压药",
+      "subcategory": "ARB（血管紧张素II受体拮抗剂）",
+      "disease": ["高血压", "心力衰竭", "糖尿病肾病"],
+      "indications": "高血压、心力衰竭、糖尿病肾病保护",
+      "contraindications": ["妊娠", "双侧肾动脉狭窄", "严重肾功能不全", "高钾血症"],
+      "interactions": [
+        {"drug": "ACEI类", "risk": "high", "note": "不推荐联用，增加肾损伤和高钾血症风险"},
+        {"drug": "保钾利尿剂", "risk": "high", "note": "高钾血症风险"},
+        {"drug": "NSAIDs", "risk": "medium", "note": "削弱降压效果"}
+      ],
+      "side_effects": ["头晕", "高钾血症", "低血压", "肾功能损害"],
+      "dosage_range": "80~320mg/日，每日1次",
+      "notes": "相比ACEI无干咳副作用，适合ACEI不耐受患者",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "HT006",
+      "generic_name": "氯沙坦",
+      "brand_names": ["科素亚"],
+      "category": "降压药",
+      "subcategory": "ARB（血管紧张素II受体拮抗剂）",
+      "disease": ["高血压", "糖尿病肾病"],
+      "indications": "高血压、2型糖尿病合并肾病",
+      "contraindications": ["妊娠", "双侧肾动脉狭窄", "严重肾功能不全"],
+      "interactions": [
+        {"drug": "ACEI类", "risk": "high", "note": "不推荐联用"},
+        {"drug": "氟康唑", "risk": "medium", "note": "影响氯沙坦代谢，升高血药浓度"}
+      ],
+      "side_effects": ["头晕", "高钾血症", "低血压"],
+      "dosage_range": "50~100mg/日，每日1次",
+      "notes": "有轻微降尿酸作用，适合合并痛风的高血压患者",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "HT007",
+      "generic_name": "美托洛尔缓释片",
+      "brand_names": ["倍他乐克"],
+      "category": "降压药",
+      "subcategory": "β受体阻滞剂",
+      "disease": ["高血压", "冠心病", "心力衰竭"],
+      "indications": "高血压、心绞痛、心力衰竭、心律失常",
+      "contraindications": ["哮喘", "慢性阻塞性肺病（严重）", "心动过缓（<50次/分）", "二度及以上房室传导阻滞", "心源性休克"],
+      "interactions": [
+        {"drug": "维拉帕米/地尔硫卓", "risk": "high", "note": "联用可引起严重心动过缓和房室传导阻滞"},
+        {"drug": "胺碘酮", "risk": "high", "note": "加重心动过缓风险"},
+        {"drug": "胰岛素/磺脲类", "risk": "medium", "note": "可能掩盖低血糖症状（如心跳加速），糖尿病患者慎用"}
+      ],
+      "side_effects": ["疲乏", "心动过缓", "四肢冷感", "掩盖低血糖症状"],
+      "dosage_range": "47.5~190mg/日，每日1次（缓释片）",
+      "notes": "不可突然停药，需逐渐减量；糖尿病患者需注意低血糖症状被掩盖",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "HT008",
+      "generic_name": "比索洛尔",
+      "brand_names": ["博苏", "康忻"],
+      "category": "降压药",
+      "subcategory": "β受体阻滞剂",
+      "disease": ["高血压", "冠心病", "心力衰竭"],
+      "indications": "高血压、稳定型心绞痛、心力衰竭",
+      "contraindications": ["严重哮喘", "严重心动过缓", "二度及以上房室传导阻滞", "心源性休克"],
+      "interactions": [
+        {"drug": "维拉帕米/地尔硫卓", "risk": "high", "note": "严重心动过缓风险"},
+        {"drug": "胰岛素", "risk": "medium", "note": "可掩盖低血糖心跳加速症状"}
+      ],
+      "side_effects": ["疲乏", "心动过缓", "头晕", "四肢冷感"],
+      "dosage_range": "2.5~10mg/日，每日1次",
+      "notes": "高选择性β1受体阻滞剂，对呼吸道影响相对较小",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "HT009",
+      "generic_name": "氢氯噻嗪",
+      "brand_names": ["双氢克尿塞"],
+      "category": "降压药",
+      "subcategory": "噻嗪类利尿剂",
+      "disease": ["高血压"],
+      "indications": "高血压（常作为联合用药）、水肿",
+      "contraindications": ["痛风", "严重低钾血症", "严重肾功能不全", "磺胺类过敏"],
+      "interactions": [
+        {"drug": "锂剂", "risk": "high", "note": "减少锂排泄，升高锂浓度，增加中毒风险"},
+        {"drug": "NSAIDs", "risk": "medium", "note": "削弱利尿和降压效果"},
+        {"drug": "磺脲类降糖药", "risk": "medium", "note": "噻嗪类可升高血糖，影响降糖效果"}
+      ],
+      "side_effects": ["低钾血症", "低钠血症", "高尿酸血症", "血糖升高"],
+      "dosage_range": "12.5~25mg/日，每日1次",
+      "notes": "注意监测血钾；痛风或高尿酸血症患者禁用",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "HT010",
+      "generic_name": "吲达帕胺",
+      "brand_names": ["寿比山", "纳催离"],
+      "category": "降压药",
+      "subcategory": "噻嗪样利尿剂",
+      "disease": ["高血压"],
+      "indications": "高血压",
+      "contraindications": ["严重肾功能不全", "低钾血症", "磺胺类过敏"],
+      "interactions": [
+        {"drug": "锂剂", "risk": "high", "note": "升高锂浓度"},
+        {"drug": "胺碘酮", "risk": "medium", "note": "低钾血症可增加心律失常风险"}
+      ],
+      "side_effects": ["低钾血症", "高尿酸血症", "头痛", "皮疹"],
+      "dosage_range": "1.25~2.5mg/日，每日1次",
+      "notes": "对血糖、血脂影响较噻嗪类小",
+      "risk_level": "low"
+    },
+
+    // ─────────────────────────────────────────
+    // 糖尿病用药（共 13 条）
+    // ─────────────────────────────────────────
+
+    {
+      "id": "DM001",
+      "generic_name": "二甲双胍",
+      "brand_names": ["格华止", "美迪康"],
+      "category": "降糖药",
+      "subcategory": "双胍类",
+      "disease": ["糖尿病（2型）"],
+      "indications": "2型糖尿病一线用药，尤其适合肥胖患者",
+      "contraindications": ["eGFR<30（严重肾功能不全）", "造影剂使用前后48小时", "肝功能严重损害", "乳酸酸中毒风险"],
+      "interactions": [
+        {"drug": "碘造影剂", "risk": "high", "note": "造影前需停药48小时，造影后确认肾功能正常再恢复"},
+        {"drug": "酒精", "risk": "high", "note": "增加乳酸酸中毒风险"},
+        {"drug": "西咪替丁", "risk": "medium", "note": "抑制二甲双胍肾脏排泄，升高血药浓度"}
+      ],
+      "side_effects": ["胃肠道反应（恶心、腹泻，餐中服用可减轻）", "维生素B12吸收减少（长期用药）", "乳酸酸中毒（罕见）"],
+      "dosage_range": "500~2000mg/日，分2~3次随餐服用",
+      "notes": "2型糖尿病首选药物；eGFR 30~45时需减量；长期服用建议监测维生素B12",
+      "risk_level": "low"
+    },
+
+    {
+      "id": "DM002",
+      "generic_name": "达格列净",
+      "brand_names": ["安达唐"],
+      "category": "降糖药",
+      "subcategory": "SGLT2抑制剂",
+      "disease": ["糖尿病（2型）", "心力衰竭", "慢性肾病"],
+      "indications": "2型糖尿病，合并心血管高风险、心力衰竭或慢性肾病患者优先推荐",
+      "contraindications": ["eGFR<25（严重肾功能不全）", "1型糖尿病", "反复尿路感染", "截肢高风险"],
+      "interactions": [
+        {"drug": "利尿剂", "risk": "medium", "note": "联用可能增加脱水和低血压风险"},
+        {"drug": "胰岛素/磺脲类", "risk": "medium", "note": "联用可能增加低血糖风险，需减少胰岛素或磺脲类剂量"}
+      ],
+      "side_effects": ["泌尿生殖道感染", "多尿", "低血压", "酮症酸中毒（罕见）"],
+      "dosage_range": "10mg/日，每日1次",
+      "notes": "具有心肾保护作用；手术前需停药；注意保持充足水分",
+      "risk_level": "low"
+    },
+
+    {
+      "id": "DM003",
+      "generic_name": "恩格列净",
+      "brand_names": ["欧唐静"],
+      "category": "降糖药",
+      "subcategory": "SGLT2抑制剂",
+      "disease": ["糖尿病（2型）", "心力衰竭"],
+      "indications": "2型糖尿病，合并心血管疾病患者尤其推荐",
+      "contraindications": ["eGFR<30", "1型糖尿病", "反复尿路感染"],
+      "interactions": [
+        {"drug": "利尿剂", "risk": "medium", "note": "脱水风险"},
+        {"drug": "胰岛素", "risk": "medium", "note": "低血糖风险，需调整胰岛素剂量"}
+      ],
+      "side_effects": ["泌尿生殖道感染", "多尿", "低血压"],
+      "dosage_range": "10~25mg/日，每日1次",
+      "notes": "EMPA-REG研究证实可降低心血管死亡率",
+      "risk_level": "low"
+    },
+
+    {
+      "id": "DM004",
+      "generic_name": "司美格鲁肽",
+      "brand_names": ["诺和泰（口服）", "诺和忻（注射）"],
+      "category": "降糖药",
+      "subcategory": "GLP-1受体激动剂",
+      "disease": ["糖尿病（2型）"],
+      "indications": "2型糖尿病，合并心血管高风险患者优先推荐，同时具有减重效果",
+      "contraindications": ["甲状腺髓样癌个人或家族史", "多发性内分泌肿瘤2型", "胰腺炎病史", "1型糖尿病"],
+      "interactions": [
+        {"drug": "口服药物", "risk": "low", "note": "可延缓胃排空，影响口服药物吸收速度"},
+        {"drug": "华法林", "risk": "medium", "note": "可能影响华法林血药浓度，需监测INR"}
+      ],
+      "side_effects": ["恶心、呕吐（常见，初期明显）", "腹泻", "胰腺炎（罕见）", "注射部位反应"],
+      "dosage_range": "0.25~1mg/周（皮下注射）；3~14mg/日（口服）",
+      "notes": "从小剂量开始逐渐加量；具有显著减重效果；需冷藏保存（注射剂）",
+      "risk_level": "low"
+    },
+
+    {
+      "id": "DM005",
+      "generic_name": "利拉鲁肽",
+      "brand_names": ["诺和力"],
+      "category": "降糖药",
+      "subcategory": "GLP-1受体激动剂",
+      "disease": ["糖尿病（2型）"],
+      "indications": "2型糖尿病，合并心血管风险患者，也用于肥胖症",
+      "contraindications": ["甲状腺髓样癌病史或家族史", "胰腺炎病史", "1型糖尿病"],
+      "interactions": [
+        {"drug": "口服降糖药", "risk": "medium", "note": "联用需注意低血糖风险"},
+        {"drug": "口服药物（广泛）", "risk": "low", "note": "延缓胃排空可影响口服药物吸收"}
+      ],
+      "side_effects": ["恶心", "呕吐", "腹泻", "胰腺炎（罕见）"],
+      "dosage_range": "0.6~1.8mg/日（皮下注射）",
+      "notes": "每日注射一次；需冷藏；首次使用从0.6mg开始",
+      "risk_level": "low"
+    },
+
+    {
+      "id": "DM006",
+      "generic_name": "格列美脲",
+      "brand_names": ["亚莫利"],
+      "category": "降糖药",
+      "subcategory": "磺脲类",
+      "disease": ["糖尿病（2型）"],
+      "indications": "2型糖尿病（单药或联合用药）",
+      "contraindications": ["1型糖尿病", "严重肾功能不全", "肝功能严重损害", "对磺胺类过敏", "妊娠"],
+      "interactions": [
+        {"drug": "二甲双胍", "risk": "low", "note": "联用增强降糖效果，注意低血糖"},
+        {"drug": "β受体阻滞剂", "risk": "medium", "note": "掩盖低血糖症状（如心跳加速）"},
+        {"drug": "氟康唑", "risk": "high", "note": "抑制格列美脲代谢，显著增加低血糖风险"},
+        {"drug": "NSAIDs", "risk": "medium", "note": "增强降糖效果，低血糖风险"}
+      ],
+      "side_effects": ["低血糖（最常见）", "体重增加", "胃肠道不适"],
+      "dosage_range": "1~6mg/日，每日1次，餐前服用",
+      "notes": "低血糖风险较高，老年患者慎用；避免漏餐",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "DM007",
+      "generic_name": "西格列汀",
+      "brand_names": ["捷诺维"],
+      "category": "降糖药",
+      "subcategory": "DPP-4抑制剂",
+      "disease": ["糖尿病（2型）"],
+      "indications": "2型糖尿病（单药或联合用药）",
+      "contraindications": ["1型糖尿病", "糖尿病酮症酸中毒", "胰腺炎病史（慎用）"],
+      "interactions": [
+        {"drug": "地高辛", "risk": "low", "note": "可轻微升高地高辛血药浓度"},
+        {"drug": "磺脲类", "risk": "medium", "note": "联用增加低血糖风险"}
+      ],
+      "side_effects": ["鼻咽炎", "头痛", "胰腺炎（罕见）", "关节痛"],
+      "dosage_range": "100mg/日，每日1次",
+      "notes": "低血糖风险低；肾功能不全需减量；安全性好，适合老年患者",
+      "risk_level": "low"
+    },
+
+    {
+      "id": "DM008",
+      "generic_name": "甘精胰岛素",
+      "brand_names": ["来得时", "长秀霖"],
+      "category": "降糖药",
+      "subcategory": "长效胰岛素类似物",
+      "disease": ["糖尿病（1型和2型）"],
+      "indications": "1型和2型糖尿病基础胰岛素治疗",
+      "contraindications": ["低血糖发作期间", "对胰岛素过敏"],
+      "interactions": [
+        {"drug": "β受体阻滞剂", "risk": "medium", "note": "掩盖低血糖症状"},
+        {"drug": "糖皮质激素", "risk": "medium", "note": "升高血糖，需增加胰岛素剂量"},
+        {"drug": "SGLT2抑制剂", "risk": "medium", "note": "联用可增加低血糖或酮症酸中毒风险"}
+      ],
+      "side_effects": ["低血糖（最主要风险）", "注射部位脂肪增生", "体重增加"],
+      "dosage_range": "10~40U/日，每日1次皮下注射（个体差异大）",
+      "notes": "每日同一时间注射；注射部位需轮换；需冷藏保存（开封后室温可保存28天）",
+      "risk_level": "medium"
+    },
+
+    // ─────────────────────────────────────────
+    // 冠心病用药（共 12 条）
+    // ─────────────────────────────────────────
+
+    {
+      "id": "CHD001",
+      "generic_name": "阿司匹林",
+      "brand_names": ["拜阿司匹灵", "阿司匹林肠溶片"],
+      "category": "抗血小板药",
+      "subcategory": "环氧合酶抑制剂",
+      "disease": ["冠心病"],
+      "indications": "冠心病二级预防、急性心肌梗死、缺血性卒中预防",
+      "contraindications": ["活动性消化道溃疡或出血", "严重肝功能损害", "对阿司匹林或NSAIDs过敏", "血友病"],
+      "interactions": [
+        {"drug": "华法林", "risk": "high", "note": "联用显著增加出血风险，需密切监测INR"},
+        {"drug": "氯吡格雷", "risk": "medium", "note": "双联抗血板治疗增加出血风险（ACS或支架术后有适应证）"},
+        {"drug": "NSAIDs（布洛芬）", "risk": "high", "note": "布洛芬可竞争性拮抗阿司匹林的抗血小板作用"},
+        {"drug": "ACEI/ARB", "risk": "low", "note": "大剂量阿司匹林可能减弱ACEI降压效果"}
+      ],
+      "side_effects": ["胃肠道刺激（溃疡、出血）", "过敏反应", "耳鸣（大剂量）", "延长出血时间"],
+      "dosage_range": "75~100mg/日（抗血小板），每日1次，餐后服用",
+      "notes": "肠溶片不可掰开；长期服用需关注消化道症状；必要时联用质子泵抑制剂保护胃黏膜",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "CHD002",
+      "generic_name": "氯吡格雷",
+      "brand_names": ["波立维", "泰嘉"],
+      "category": "抗血小板药",
+      "subcategory": "P2Y12受体拮抗剂",
+      "disease": ["冠心病"],
+      "indications": "ACS（急性冠状动脉综合征）、支架术后抗血小板治疗、阿司匹林不耐受时的替代",
+      "contraindications": ["活动性病理性出血", "严重肝功能损害"],
+      "interactions": [
+        {"drug": "质子泵抑制剂（奥美拉唑）", "risk": "medium", "note": "奥美拉唑抑制CYP2C19，减弱氯吡格雷活化，降低抗血小板效果；可换用泮托拉唑"},
+        {"drug": "华法林", "risk": "high", "note": "联用显著增加出血风险"},
+        {"drug": "阿司匹林", "risk": "medium", "note": "双联抗血小板有出血风险，需权衡适应证"}
+      ],
+      "side_effects": ["出血（最主要风险）", "皮疹", "腹泻", "中性粒细胞减少（罕见）"],
+      "dosage_range": "75mg/日，每日1次；负荷量300~600mg（急性期）",
+      "notes": "CYP2C19慢代谢者疗效可能减弱；不可与奥美拉唑联用（换泮托拉唑）",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "CHD003",
+      "generic_name": "阿托伐他汀",
+      "brand_names": ["立普妥", "阿乐"],
+      "category": "调脂药",
+      "subcategory": "他汀类（HMG-CoA还原酶抑制剂）",
+      "disease": ["冠心病", "高血压（合并高血脂）", "糖尿病（合并高血脂）"],
+      "indications": "高胆固醇血症、冠心病一级和二级预防",
+      "contraindications": ["活动性肝病", "妊娠及哺乳期", "对他汀类过敏"],
+      "interactions": [
+        {"drug": "氨氯地平", "risk": "medium", "note": "氨氯地平升高阿托伐他汀血药浓度，增加肌病风险，剂量不超过40mg"},
+        {"drug": "克拉霉素/红霉素", "risk": "high", "note": "抑制CYP3A4，显著升高他汀浓度，增加横纹肌溶解风险"},
+        {"drug": "吉非贝齐（贝特类）", "risk": "high", "note": "联用显著增加肌病和横纹肌溶解风险"},
+        {"drug": "华法林", "risk": "medium", "note": "可增强华法林抗凝效果，需监测INR"}
+      ],
+      "side_effects": ["肌肉疼痛/无力（肌病）", "肝酶升高", "横纹肌溶解（罕见但严重）", "血糖轻度升高"],
+      "dosage_range": "10~80mg/日，每日1次（可在任何时间服用）",
+      "notes": "用药期间若出现不明原因肌肉疼痛立即就医；定期监测肝功能和CK",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "CHD004",
+      "generic_name": "瑞舒伐他汀",
+      "brand_names": ["可定"],
+      "category": "调脂药",
+      "subcategory": "他汀类",
+      "disease": ["冠心病", "高血压（合并高血脂）"],
+      "indications": "高胆固醇血症、心血管疾病预防",
+      "contraindications": ["活动性肝病", "妊娠及哺乳期", "严重肾功能不全（剂量>40mg时禁用）"],
+      "interactions": [
+        {"drug": "吉非贝齐", "risk": "high", "note": "横纹肌溶解风险"},
+        {"drug": "华法林", "risk": "medium", "note": "增强抗凝效果"},
+        {"drug": "环孢素", "risk": "high", "note": "显著升高他汀血药浓度"}
+      ],
+      "side_effects": ["肌肉疼痛", "肝酶升高", "蛋白尿（大剂量）"],
+      "dosage_range": "5~40mg/日，每日1次",
+      "notes": "亚裔人群推荐起始剂量5mg；降LDL效果强",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "CHD005",
+      "generic_name": "硝酸甘油",
+      "brand_names": ["耐较平"],
+      "category": "抗心绞痛药",
+      "subcategory": "硝酸酯类",
+      "disease": ["冠心病"],
+      "indications": "急性心绞痛发作（舌下含服）、预防性使用",
+      "contraindications": ["严重低血压（收缩压<90mmHg）", "青光眼", "颅内压升高", "严重贫血", "正在使用PDE-5抑制剂（西地那非/他达拉非）"],
+      "interactions": [
+        {"drug": "西地那非（伟哥）/他达拉非", "risk": "high", "note": "联用可引起严重低血压，禁止同用，间隔至少24小时"},
+        {"drug": "降压药", "risk": "medium", "note": "联用增强降压效果，注意体位性低血压"}
+      ],
+      "side_effects": ["头痛（最常见）", "低血压", "反射性心跳加速", "面部潮红"],
+      "dosage_range": "0.25~0.5mg，舌下含服，可每5分钟重复，最多3次",
+      "notes": "含服3次后仍未缓解立即就医，警惕急性心肌梗死；需避光保存；产生耐药性需停药间隔",
+      "risk_level": "medium"
+    },
+
+    {
+      "id": "CHD006",
+      "generic_name": "单硝酸异山梨酯",
+      "brand_names": ["依姆多", "长效心痛治"],
+      "category": "抗心绞痛药",
+      "subcategory": "硝酸酯类",
+      "disease": ["冠心病"],
+      "indications": "冠心病长期预防性治疗、稳定型心绞痛",
+      "contraindications": ["严重低血压", "青光眼", "正在使用PDE-5抑制剂"],
+      "interactions": [
+        {"drug": "西地那非/他达拉非", "risk": "high", "note": "禁止同用，严重低血压风险"},
+        {"drug": "降压药/利尿剂", "risk": "medium", "note": "增强降压效果"}
+      ],
+      "side_effects": ["头痛", "低血压", "头晕", "反射性心动过速"],
+      "dosage_range": "20~40mg/日（普通片分2次），缓释片60mg每日1次",
+      "notes": "普通片服用需留出无药间隔（如晨8时和下午2时），避免产生耐药",
+      "risk_level": "low"
+    },
+
+    {
+      "id": "CHD007",
+      "generic_name": "地尔硫卓",
+      "brand_names": ["合贝爽", "恬尔心"],
+      "category": "抗心绞痛药",
+      "subcategory": "CCB（非二氢吡啶类）",
+      "disease": ["冠心病"],
+      "indications": "变异型心绞痛（首选）、稳定型心绞痛、室上性心动过速",
+      "contraindications": ["严重心动过缓", "二度及以上房室传导阻滞", "收缩功能不全的心力衰竭", "病态窦房结综合征"],
+      "interactions": [
+        {"drug": "β受体阻滞剂（美托洛尔/比索洛尔）", "risk": "high", "note": "联用可引起严重心动过缓和房室传导阻滞，禁止联用"},
+        {"drug": "他汀类", "risk": "medium", "note": "升高他汀血药浓度，增加肌病风险"},
+        {"drug": "地高辛", "risk": "medium", "note": "升高地高辛血药浓度"}
+      ],
+      "side_effects": ["心动过缓", "低血压", "头晕", "水肿", "便秘"],
+      "dosage_range": "90~360mg/日，分3次服用（普通片）",
+      "notes": "不与β受体阻滞剂联用；监测心率和血压",
+      "risk_level": "high"
+    },
+
+    {
+      "id": "CHD008",
+      "generic_name": "华法林",
+      "brand_names": ["华法林钠片"],
+      "category": "抗凝药",
+      "subcategory": "维生素K拮抗剂",
+      "disease": ["冠心病", "心房颤动"],
+      "indications": "心房颤动血栓预防、机械瓣膜置换术后、静脉血栓栓塞症",
+      "contraindications": ["活动性出血", "严重肝肾功能损害", "妊娠（致畸）", "近期颅内手术或外伤"],
+      "interactions": [
+        {"drug": "阿司匹林/氯吡格雷", "risk": "high", "note": "显著增加出血风险"},
+        {"drug": "他汀类", "risk": "medium", "note": "增强抗凝效果，需监测INR"},
+        {"drug": "氟康唑/胺碘酮", "risk": "high", "note": "显著增强抗凝作用，INR大幅升高"},
+        {"drug": "维生素K丰富食物（菠菜/西兰花）", "risk": "medium", "note": "拮抗华法林，影响INR稳定性"},
+        {"drug": "NSAIDs", "risk": "high", "note": "增加出血风险，避免联用"}
+      ],
+      "side_effects": ["出血（最主要风险）", "皮肤坏死（罕见）", "华法林相关肾病"],
+      "dosage_range": "根据INR调整，目标INR通常2.0~3.0（机械瓣膜2.5~3.5）",
+      "notes": "需定期监测INR；饮食变化和联合用药均可影响INR；出血时拮抗剂为维生素K",
+      "risk_level": "high"
+    }
+  ],
+
+  "interaction_matrix": {
+    "description": "高风险药物相互作用速查（用药管理Agent优先检查项）",
+    "high_risk_pairs": [
+      {"drugs": ["ACEI类", "ARB类"], "risk": "高钾血症、肾功能恶化，不推荐联用"},
+      {"drugs": ["β受体阻滞剂", "地尔硫卓/维拉帕米"], "risk": "严重心动过缓、房室传导阻滞"},
+      {"drugs": ["硝酸酯类", "西地那非/他达拉非"], "risk": "严重低血压，禁止联用"},
+      {"drugs": ["华法林", "阿司匹林"], "risk": "出血风险显著增加"},
+      {"drugs": ["华法林", "氟康唑"], "risk": "INR大幅升高，出血风险"},
+      {"drugs": ["他汀类", "吉非贝齐"], "risk": "横纹肌溶解风险"},
+      {"drugs": ["氯吡格雷", "奥美拉唑"], "risk": "奥美拉唑抑制氯吡格雷活化，降低抗血小板效果"},
+      {"drugs": ["二甲双胍", "碘造影剂"], "risk": "乳酸酸中毒风险，造影前需停药"},
+      {"drugs": ["ACEI/ARB", "保钾利尿剂"], "risk": "高钾血症"},
+      {"drugs": ["磺脲类", "氟康唑"], "risk": "低血糖风险显著增加"}
+    ]
+  }
+}

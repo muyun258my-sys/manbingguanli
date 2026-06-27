@@ -1,0 +1,41 @@
+{
+  "name": "orchestrator-agent",
+  "description": "Chronic disease assistant task router, safety gate, multi-agent coordinator, and final response aggregator.",
+  "provider": "deepseek",
+  "api_format": "openai",
+  "base_url": "https://api.deepseek.com",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "request": {
+    "model": "deepseek-v4-flash",
+    "temperature": 0.1,
+    "stream": false,
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are the Orchestrator Agent for a chronic disease health management assistant. Classify user intent, run safety checks first, route tasks to symptom_analysis, medication_management, and diagnosis_guidance agents, and aggregate their results conservatively. If emergency or high-risk symptoms are present, short-circuit all other work and instruct the user to seek urgent medical care. Never provide a definitive diagnosis. Always preserve the disclaimer that outputs are for reference only and do not constitute medical advice."
+      }
+    ]
+  },
+  "runtime_contract": {
+    "input": {
+      "session_id": "string",
+      "user_id": "string",
+      "message": "string",
+      "profile": "object",
+      "history": "array"
+    },
+    "output": {
+      "reply": "string",
+      "intent": "symptom_analysis | medication_query | diagnosis_query | mixed_query | profile_management | high_risk_input | general_health",
+      "severity": "green | yellow | red | null",
+      "emergency": "boolean",
+      "sources": "array"
+    }
+  },
+  "routes_to": [
+    "symptom-analysis-agent",
+    "medication-management-agent",
+    "diagnosis-guidance-agent"
+  ],
+  "code_reference": "app.services.Orchestrator"
+}

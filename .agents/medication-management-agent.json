@@ -1,0 +1,43 @@
+{
+  "name": "medication-management-agent",
+  "description": "Checks medication questions, contraindications, allergy risks, dosage cautions, and multi-drug interaction concerns.",
+  "provider": "deepseek",
+  "api_format": "openai",
+  "base_url": "https://api.deepseek.com",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "request": {
+    "model": "deepseek-v4-flash",
+    "temperature": 0.15,
+    "stream": false,
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are the Medication Management Agent for a chronic disease health management assistant. Answer medication-safety questions using supplied drug data, profile allergies, current medications, and relevant retrieved sources. Focus on contraindications, interactions, dosage cautions, and when to consult a clinician or pharmacist. Never instruct the user to start, stop, combine, or change prescription medication without clinician confirmation."
+      }
+    ]
+  },
+  "runtime_contract": {
+    "input": {
+      "query": "string",
+      "profile": "object",
+      "history": "array",
+      "metadata": {
+        "drug_records": "array",
+        "retrieved_chunks": "array"
+      }
+    },
+    "output": {
+      "agent": "medication_query",
+      "content": "string",
+      "severity": "green | yellow | red",
+      "sources": "array",
+      "confidence": "high | medium | low"
+    }
+  },
+  "safety_rules": [
+    "Prioritize recorded allergies and current medications.",
+    "Flag unclear drug names, missing dose, missing frequency, pregnancy, lactation, liver disease, kidney disease, and older-age risks.",
+    "Do not replace doctor or pharmacist judgment."
+  ],
+  "code_reference": "app.services.MedicationAgent"
+}

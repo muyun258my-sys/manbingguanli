@@ -1,0 +1,9 @@
+.env
+__pycache__/
+.pytest_cache/
+*.pyc
+data/
+.claude
+app/.idea/
+models/embedding/
+vector_db/
