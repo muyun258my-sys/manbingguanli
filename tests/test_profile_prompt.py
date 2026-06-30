@@ -40,7 +40,7 @@ def test_chat_injects_profile_prompt_into_each_agent_call():
         def __init__(self):
             self.memory = []
 
-        def run(self, request, profile, memory):
+        def run(self, request, profile, memory, knowledge_sources=()):
             self.memory = memory
             return AgentOutput(agent="general_health", content="ok", severity="green")
 

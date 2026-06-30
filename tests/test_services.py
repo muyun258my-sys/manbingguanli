@@ -1,12 +1,28 @@
 import pytest
+import types
+import sys
 from app.models import ChatRequest
+from app.models import SourceRef
 from app.services import (
     ConversationMemory,
     IntentClassifier,
     Orchestrator,
+    MySQLProfileStore,
     ProfileStore,
     SafetyGate,
 )
+
+
+class StubKnowledgeRetriever:
+    def __init__(self, sources=None, available=True):
+        self.sources = sources or []
+        self.available = available
+
+    def retrieve(self, query):
+        return list(self.sources)
+
+    def is_available(self):
+        return self.available
 
 
 # ── health ──────────────────────────────────────────────────────────────────
@@ -16,6 +32,13 @@ def test_health():
     payload = orc.health()
     assert payload["code"] == 0
     assert payload["data"]["status"] == "healthy"
+
+
+def test_health_reports_vector_store_status():
+    retriever = StubKnowledgeRetriever(available=True)
+    orc = Orchestrator(knowledge_retriever=retriever)
+    payload = orc.health()
+    assert payload["data"]["dependencies"]["vector_store"] is True
 
 
 # ── profile roundtrip ────────────────────────────────────────────────────────
@@ -38,6 +61,18 @@ def test_profile_partial_update():
     assert p["medications"] == ["二甲双胍"]
 
 
+def test_chat_returns_pdf_sources_from_retriever():
+    source = SourceRef(
+        title="gaoxueya.pdf",
+        excerpt="blood pressure guideline snippet",
+        source="shujuku/guidelines/gaoxueya.pdf#page=1",
+    )
+    orc = Orchestrator(knowledge_retriever=StubKnowledgeRetriever([source]))
+    resp = orc.chat(ChatRequest(session_id="s_pdf", user_id="u_pdf", message="鏈€杩戝ご鏅曪紝琛€鍘?160/100"))
+    sources = resp["data"]["sources"]
+    assert any(item["title"] == "gaoxueya.pdf" for item in sources)
+
+
 def test_profile_persists_across_store_instances(tmp_path):
     """关键回归：档案落盘后，新建的 ProfileStore（模拟重启）仍能读回。"""
     db = tmp_path / "profiles.db"
@@ -58,6 +93,58 @@ def test_emergency_short_circuit():
     response = orc.chat(ChatRequest(session_id="s1", user_id="u1", message="突然胸痛，而且呼吸困难"))
     assert response["data"]["emergency"] is True
     assert response["data"]["intent"] == "high_risk_input"
+
+
+def test_mysql_profile_store_roundtrip_with_fake_driver(monkeypatch):
+    rows = {}
+
+    class FakeCursor:
+        def __init__(self):
+            self.fetchone_value = None
+
+        def execute(self, sql, params=None):
+            if sql.strip().startswith("SELECT *"):
+                self.fetchone_value = rows.get(params[0])
+            elif sql.strip().startswith("INSERT INTO profiles"):
+                rows[params[0]] = {
+                    "user_id": params[0],
+                    "condition_description": params[1],
+                    "conditions": params[2],
+                    "medications": params[3],
+                    "allergies": params[4],
+                    "updated_at": params[5],
+                }
+
+        def fetchone(self):
+            return self.fetchone_value
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeConnection:
+        def cursor(self):
+            return FakeCursor()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    fake_pymysql = types.SimpleNamespace(
+        cursors=types.SimpleNamespace(DictCursor=object),
+        connect=lambda **kwargs: FakeConnection(),
+    )
+    monkeypatch.setitem(sys.modules, "pymysql", fake_pymysql)
+
+    store = MySQLProfileStore(database="xm2_test")
+    store.update("u_mysql", conditions=["hypertension"], medications=["amlodipine"])
+    profile = store.get("u_mysql")
+    assert profile.conditions == ["hypertension"]
+    assert profile.medications == ["amlodipine"]
 
 
 @pytest.mark.parametrize("text", [
@@ -124,6 +211,8 @@ def test_emergency_readme_example_short_circuits():
     ("二甲双胍和阿司匹林能一起吃吗", "medication_query"),
     ("这个情况要挂什么科", "diagnosis_query"),
     ("更新档案，我有高血压", "profile_management"),
+    ("高血压可以吃咸菜吗", "diet_query"),
+    ("糖尿病能不能吃西瓜", "diet_query"),
 ])
 def test_classifier_single_intent(text, expected):
     clf = IntentClassifier()
@@ -198,6 +287,21 @@ def test_mixed_query_reply():
     d = resp["data"]
     assert d["intent"] == "mixed_query"
     assert d["reply"]
+
+
+def test_diet_query_reply_with_pdf_source():
+    source = SourceRef(
+        title="gaoxueya.pdf",
+        excerpt="限制钠的摄入量。",
+        source="shujuku/guidelines/gaoxueya.pdf#page=2",
+    )
+    orc = Orchestrator(knowledge_retriever=StubKnowledgeRetriever([source]))
+    resp = orc.chat(ChatRequest(session_id="sdiet", user_id="udiet", message="高血压可以吃咸菜吗"))
+    d = resp["data"]
+    assert d["intent"] == "diet_query"
+    assert "建议" in d["reply"]
+    assert "咸菜" in d["reply"] or "高盐" in d["reply"]
+    assert any(item["title"] == "gaoxueya.pdf" for item in d["sources"])
 
 
 # ── severity propagation ─────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ Intent = Literal[
     "diagnosis_query",
     "mixed_query",
     "profile_management",
+    "diet_query",
     "high_risk_input",
     "general_health",
 ]

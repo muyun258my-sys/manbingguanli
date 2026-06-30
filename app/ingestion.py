@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Iterable, List, Sequence
 
 
-DEFAULT_PDF_DIR = Path("raw_pdfs")
+DEFAULT_PDF_DIR = Path("shujuku")
 DEFAULT_VECTOR_DB_DIR = Path("vector_db")
 DEFAULT_COLLECTION_NAME = "pdf_knowledge"
 DEFAULT_LOCAL_EMBEDDING_MODEL = "BAAI/bge-small-zh-v1.5"

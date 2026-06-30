@@ -1,4 +1,8 @@
-from app.ingestion import PageText, chunk_pages, infer_category, split_text
+from app.ingestion import DEFAULT_PDF_DIR, PageText, chunk_pages, infer_category, split_text
+
+
+def test_default_pdf_dir_points_to_project_knowledge_base():
+    assert DEFAULT_PDF_DIR == Path("shujuku")
 from pathlib import Path
 
 

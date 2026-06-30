@@ -4,10 +4,9 @@ import json
 import os
 import re
 import sqlite3
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Sequence
 
 import requests
 
@@ -31,6 +30,8 @@ def now_iso() -> str:
 
 _DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 DEFAULT_PROFILE_DB = _DATA_DIR / "profiles.db"
+DEFAULT_VECTOR_DB_DIR = Path(__file__).resolve().parents[1] / "vector_db"
+DEFAULT_VECTOR_COLLECTION = "pdf_knowledge"
 
 
 def _resolve_db_path(db_path: Optional[Path | str]) -> Path:
@@ -40,6 +41,25 @@ def _resolve_db_path(db_path: Optional[Path | str]) -> Path:
     if env_path:
         return Path(env_path)
     return DEFAULT_PROFILE_DB
+
+
+class ProfileRepository(Protocol):
+    def get(self, user_id: str) -> Profile:
+        ...
+
+    def update(
+        self,
+        user_id: str,
+        *,
+        condition_description: Optional[str] = None,
+        conditions: Optional[Sequence[str]] = None,
+        medications: Optional[Sequence[str]] = None,
+        allergies: Optional[Sequence[str]] = None,
+    ) -> Profile:
+        ...
+
+    def is_available(self) -> bool:
+        ...
 
 
 class ProfileStore:
@@ -127,8 +147,146 @@ class ProfileStore:
                     json.dumps(profile.allergies, ensure_ascii=False),
                     profile.updated_at,
                 ),
-            )
+        )
         return profile
+
+    def is_available(self) -> bool:
+        try:
+            with self._connect() as conn:
+                conn.execute("SELECT 1")
+            return True
+        except sqlite3.Error:
+            return False
+
+
+class MySQLProfileStore:
+    """User health profile storage backed by MySQL."""
+
+    def __init__(
+        self,
+        *,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        user: Optional[str] = None,
+        password: Optional[str] = None,
+        database: Optional[str] = None,
+    ) -> None:
+        self.host = host or os.getenv("MYSQL_HOST", "127.0.0.1")
+        self.port = port or int(os.getenv("MYSQL_PORT", "3306"))
+        self.user = user or os.getenv("MYSQL_USER", "root")
+        self.password = password if password is not None else os.getenv("MYSQL_PASSWORD", "")
+        self.database = database or os.getenv("MYSQL_DATABASE", "xm2")
+        self._init_db()
+
+    def _connect(self):
+        try:
+            import pymysql
+        except ImportError as exc:
+            raise RuntimeError("Missing dependency: install pymysql to use MySQL profile storage.") from exc
+
+        return pymysql.connect(
+            host=self.host,
+            port=self.port,
+            user=self.user,
+            password=self.password,
+            database=self.database,
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor,
+            autocommit=True,
+        )
+
+    def _init_db(self) -> None:
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS profiles (
+                        user_id VARCHAR(191) PRIMARY KEY,
+                        condition_description TEXT NOT NULL,
+                        conditions JSON NOT NULL,
+                        medications JSON NOT NULL,
+                        allergies JSON NOT NULL,
+                        updated_at VARCHAR(64) NOT NULL
+                    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+                    """
+                )
+
+    def get(self, user_id: str) -> Profile:
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM profiles WHERE user_id = %s", (user_id,))
+                row = cur.fetchone()
+        if row is None:
+            return Profile(user_id=user_id)
+        return Profile(
+            user_id=row["user_id"],
+            condition_description=row["condition_description"],
+            conditions=json.loads(row["conditions"]),
+            medications=json.loads(row["medications"]),
+            allergies=json.loads(row["allergies"]),
+            updated_at=row["updated_at"],
+        )
+
+    def update(
+        self,
+        user_id: str,
+        *,
+        condition_description: Optional[str] = None,
+        conditions: Optional[Sequence[str]] = None,
+        medications: Optional[Sequence[str]] = None,
+        allergies: Optional[Sequence[str]] = None,
+    ) -> Profile:
+        profile = self.get(user_id)
+        if condition_description is not None:
+            profile.condition_description = condition_description.strip()
+        if conditions is not None:
+            profile.conditions = list(conditions)
+        if medications is not None:
+            profile.medications = list(medications)
+        if allergies is not None:
+            profile.allergies = list(allergies)
+        profile.updated_at = now_iso()
+
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO profiles
+                        (user_id, condition_description, conditions, medications, allergies, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        condition_description = VALUES(condition_description),
+                        conditions = VALUES(conditions),
+                        medications = VALUES(medications),
+                        allergies = VALUES(allergies),
+                        updated_at = VALUES(updated_at)
+                    """,
+                    (
+                        profile.user_id,
+                        profile.condition_description,
+                        json.dumps(profile.conditions, ensure_ascii=False),
+                        json.dumps(profile.medications, ensure_ascii=False),
+                        json.dumps(profile.allergies, ensure_ascii=False),
+                        profile.updated_at,
+                    ),
+                )
+        return profile
+
+    def is_available(self) -> bool:
+        try:
+            with self._connect() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1")
+            return True
+        except Exception:
+            return False
+
+
+def create_profile_store() -> ProfileRepository:
+    backend = os.getenv("APP_PROFILE_STORE", "sqlite").strip().lower()
+    if backend == "mysql":
+        return MySQLProfileStore()
+    return ProfileStore()
 
 
 def render_profile_prompt(profile: Profile) -> str:
@@ -152,6 +310,73 @@ def render_profile_prompt(profile: Profile) -> str:
         lines.append("- 暂无已保存的健康档案。")
     lines.append("请在每轮回答中参考以上信息；如涉及用药或风险判断，优先核对过敏史、当前用药和既往病史。")
     return "\n".join(lines)
+
+
+class KnowledgeRetriever:
+    def __init__(
+        self,
+        *,
+        vector_db_dir: Optional[Path | str] = None,
+        collection_name: Optional[str] = None,
+        top_k: int = 3,
+    ) -> None:
+        self.vector_db_dir = Path(vector_db_dir or os.getenv("APP_VECTOR_DB_DIR", str(DEFAULT_VECTOR_DB_DIR)))
+        self.collection_name = collection_name or os.getenv("APP_VECTOR_COLLECTION", DEFAULT_VECTOR_COLLECTION)
+        self.top_k = int(os.getenv("APP_RAG_TOP_K", str(top_k)))
+
+    def retrieve(self, query: str) -> List[SourceRef]:
+        if not query.strip() or not self.vector_db_dir.exists():
+            return []
+        try:
+            from .ingestion import retrieve
+
+            hits = retrieve(
+                query,
+                vector_db_dir=self.vector_db_dir,
+                collection_name=self.collection_name,
+                top_k=self.top_k,
+            )
+        except Exception:
+            return []
+
+        sources: List[SourceRef] = []
+        for hit in hits:
+            metadata = hit.get("metadata") or {}
+            title = str(metadata.get("pdf_name") or metadata.get("source_path") or "PDF reference")
+            page = metadata.get("page")
+            source = str(metadata.get("source_path") or self.collection_name)
+            if page:
+                source = f"{source}#page={page}"
+            sources.append(
+                SourceRef(
+                    title=title,
+                    excerpt=str(hit.get("text") or "")[:300],
+                    source=source,
+                )
+            )
+        return sources
+
+    def is_available(self) -> bool:
+        if not self.vector_db_dir.exists():
+            return False
+        try:
+            import chromadb
+
+            client = chromadb.PersistentClient(path=str(self.vector_db_dir))
+            collection = client.get_collection(self.collection_name)
+            return collection.count() > 0
+        except Exception:
+            return False
+
+
+def render_knowledge_prompt(sources: Sequence[SourceRef]) -> str:
+    if not sources:
+        return ""
+    lines = ["Retrieved PDF reference snippets:"]
+    for index, source in enumerate(sources, start=1):
+        lines.append(f"[{index}] {source.title} ({source.source})\n{source.excerpt}")
+    lines.append("Use these snippets as reference material when relevant, and do not claim they are a diagnosis.")
+    return "\n\n".join(lines)
 
 
 class ConversationMemory:
@@ -194,6 +419,11 @@ class SafetyGate:
 
 
 class IntentClassifier:
+    DIET_WORDS = ["吃", "喝", "食物", "水果", "饮食", "忌口", "能不能吃", "可以吃", "能吃", "可以喝", "能喝"]
+    FOOD_WORDS = [
+        "咸菜", "腌菜", "盐", "酒", "茶", "咖啡", "西瓜", "水果", "米饭", "面条", "鸡蛋", "牛奶",
+        "海鲜", "动物内脏", "火锅", "甜食", "饮料", "肉", "豆腐", "豆制品", "蔬菜", "坚果",
+    ]
     MEDICATION_WORDS = ["药", "服用", "副作用", "禁忌", "过敏", "相互作用", "能一起吃", "能不能吃"]
     DIAGNOSIS_WORDS = ["挂什么科", "要不要去医院", "严重吗", "怎么诊断", "是不是", "建议就医"]
     PROFILE_WORDS = ["更新档案", "保存档案", "修改档案", "我的病史", "我的过敏", "我的用药"]
@@ -207,12 +437,18 @@ class IntentClassifier:
         has_diagnosis = self._contains_any(text, self.DIAGNOSIS_WORDS)
         has_profile = self._contains_any(text, self.PROFILE_WORDS)
         has_symptom = self._contains_any(text, self.SYMPTOM_WORDS)
+        has_diet = self._is_diet_query(text)
 
-        score = sum([has_medication, has_diagnosis, has_profile, has_symptom])
+        if has_diet and not has_profile:
+            return "diet_query"
+
+        score = sum([has_medication, has_diagnosis, has_profile, has_symptom, has_diet])
         if score > 1:
             return "mixed_query"
         if has_profile:
             return "profile_management"
+        if has_diet:
+            return "diet_query"
         if has_medication:
             return "medication_query"
         if has_diagnosis:
@@ -224,6 +460,15 @@ class IntentClassifier:
     @staticmethod
     def _contains_any(text: str, words: Sequence[str]) -> bool:
         return any(word in text for word in words)
+
+    def _is_diet_query(self, text: str) -> bool:
+        return self._contains_any(text, self.DIET_WORDS) and (
+            self._contains_any(text, self.FOOD_WORDS)
+            or "能不能吃" in text
+            or "可以吃" in text
+            or "能吃" in text
+            or "忌口" in text
+        )
 
 
 def _profile_snapshot(profile: Profile) -> Dict[str, Any]:
@@ -259,11 +504,13 @@ class ConfiguredLLMAgent:
         profile: Profile,
         memory: List[Dict[str, str]],
         *,
+        knowledge_sources: Sequence[SourceRef] = (),
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Optional[AgentOutput]:
         if not self.client.is_configured(self.config):
             return None
 
+        knowledge_prompt = render_knowledge_prompt(knowledge_sources)
         user_message = {
             "role": "user",
             "content": (
@@ -271,6 +518,7 @@ class ConfiguredLLMAgent:
                 f"{request.message}\n\n"
                 "User profile JSON:\n"
                 f"{_profile_snapshot(profile)}"
+                f"\n\n{knowledge_prompt}"
             ),
         }
         try:
@@ -286,7 +534,7 @@ class ConfiguredLLMAgent:
             agent=self.output_agent,
             content=content,
             severity=self.fallback_severity,
-            sources=[SourceRef(title=self.config.name, excerpt=request.message[:80], source="deepseek")],
+            sources=list(knowledge_sources) or [SourceRef(title=self.config.name, excerpt=request.message[:80], source="deepseek")],
             confidence=self.fallback_confidence,
         )
 
@@ -309,12 +557,19 @@ class SymptomAgent:
             else None
         )
 
-    def run(self, request: ChatRequest, profile: Profile, memory: List[Dict[str, str]]) -> AgentOutput:
+    def run(
+        self,
+        request: ChatRequest,
+        profile: Profile,
+        memory: List[Dict[str, str]],
+        knowledge_sources: Sequence[SourceRef] = (),
+    ) -> AgentOutput:
         if self.llm_agent is not None:
             llm_output = self.llm_agent.run_llm(
                 request,
                 profile,
                 memory,
+                knowledge_sources=knowledge_sources,
                 metadata={"agent": "symptom_analysis", "profile": _profile_snapshot(profile)},
             )
             if llm_output is not None:
@@ -330,6 +585,7 @@ class SymptomAgent:
         sources = [
             SourceRef(title="慢病症状评估通用建议", excerpt=detail[:80], source="local_stub"),
         ]
+        sources.extend(knowledge_sources)
         return AgentOutput(agent="symptom_analysis", content=reply, severity="yellow", sources=sources, confidence="medium")
 
     @staticmethod
@@ -359,12 +615,19 @@ class MedicationAgent:
 
     CONTRA_KEYWORDS = ["过敏", "禁忌", "肾功能", "肝功能", "孕", "哺乳"]
 
-    def run(self, request: ChatRequest, profile: Profile, memory: List[Dict[str, str]]) -> AgentOutput:
+    def run(
+        self,
+        request: ChatRequest,
+        profile: Profile,
+        memory: List[Dict[str, str]],
+        knowledge_sources: Sequence[SourceRef] = (),
+    ) -> AgentOutput:
         if self.llm_agent is not None:
             llm_output = self.llm_agent.run_llm(
                 request,
                 profile,
                 memory,
+                knowledge_sources=knowledge_sources,
                 metadata={"agent": "medication_query", "profile": _profile_snapshot(profile)},
             )
             if llm_output is not None:
@@ -381,6 +644,7 @@ class MedicationAgent:
             f"{concern}"
         )
         sources = [SourceRef(title="用药安全核对", excerpt=request.message[:80], source="local_stub")]
+        sources.extend(knowledge_sources)
         severity: Severity = "yellow" if concern else "green"
         return AgentOutput(agent="medication_query", content=reply, severity=severity, sources=sources, confidence="medium")
 
@@ -409,12 +673,19 @@ class DiagnosisAgent:
             else None
         )
 
-    def run(self, request: ChatRequest, profile: Profile, memory: List[Dict[str, str]]) -> AgentOutput:
+    def run(
+        self,
+        request: ChatRequest,
+        profile: Profile,
+        memory: List[Dict[str, str]],
+        knowledge_sources: Sequence[SourceRef] = (),
+    ) -> AgentOutput:
         if self.llm_agent is not None:
             llm_output = self.llm_agent.run_llm(
                 request,
                 profile,
                 memory,
+                knowledge_sources=knowledge_sources,
                 metadata={"agent": "diagnosis_query", "profile": _profile_snapshot(profile)},
             )
             if llm_output is not None:
@@ -427,14 +698,90 @@ class DiagnosisAgent:
         if profile.conditions:
             reply += f" 结合你已有病史：{'、'.join(profile.conditions)}，就诊时可以主动说明。"
         sources = [SourceRef(title="分级就医建议", excerpt=request.message[:80], source="local_stub")]
+        sources.extend(knowledge_sources)
         return AgentOutput(agent="diagnosis_query", content=reply, severity="red", sources=sources, confidence="high")
 
 
 class GeneralAgent:
-    def run(self, request: ChatRequest, profile: Profile, memory: List[Dict[str, str]]) -> AgentOutput:
+    def run(
+        self,
+        request: ChatRequest,
+        profile: Profile,
+        memory: List[Dict[str, str]],
+        knowledge_sources: Sequence[SourceRef] = (),
+    ) -> AgentOutput:
         reply = "我先帮你整理一下信息。你可以补充症状、持续时间、现用药和过敏史，我再继续判断。"
         sources = [SourceRef(title="健康信息补充提示", excerpt=request.message[:80], source="local_stub")]
+        sources.extend(knowledge_sources)
         return AgentOutput(agent="general_health", content=reply, severity="green", sources=sources, confidence="low")
+
+
+class DietAgent:
+    AVOID_RULES = [
+        (["高血压", "血压"], ["咸菜", "腌菜", "高盐"], "这类高盐食物建议尽量少吃或避免，经常吃会增加钠摄入，不利于血压控制。"),
+        (["高血压", "血压"], ["酒", "白酒", "啤酒", "红酒"], "血压偏高或控制不稳时不建议饮酒，饮酒可能影响血压控制和用药安全。"),
+        (["糖尿病", "血糖"], ["甜饮料", "饮料", "甜食"], "含糖饮料和甜食建议避免或严格限制，容易造成血糖快速升高。"),
+        (["痛风", "尿酸", "高尿酸"], ["海鲜", "动物内脏", "啤酒"], "痛风或尿酸高时建议避免高嘌呤食物和啤酒，可能诱发尿酸升高或痛风发作。"),
+        (["高血脂", "血脂"], ["油炸", "肥肉", "动物内脏"], "高血脂人群建议限制高脂、高胆固醇食物，优先选择清淡烹调。"),
+    ]
+    LIMIT_RULES = [
+        (["糖尿病", "血糖"], ["西瓜", "水果"], "可以少量吃，但要控制份量，尽量放在两餐之间，并观察餐后血糖。"),
+        (["高血脂", "血脂"], ["鸡蛋"], "通常可以吃鸡蛋，但建议控制数量，少吃油煎做法，并结合血脂水平调整。"),
+        (["高血压", "血压"], ["咖啡", "茶"], "一般可少量饮用，但如果喝后心慌、血压升高或睡眠变差，应减少或避免。"),
+    ]
+
+    def run(
+        self,
+        request: ChatRequest,
+        profile: Profile,
+        memory: List[Dict[str, str]],
+        knowledge_sources: Sequence[SourceRef] = (),
+    ) -> AgentOutput:
+        text = request.message
+        condition_hint = self._condition_hint(text, profile)
+        advice, severity = self._match_advice(text, condition_hint)
+        profile_note = self._profile_note(profile)
+        reply = (
+            f"{advice}"
+            f"{profile_note}"
+            "如果你能补充具体疾病诊断、最近指标数值、正在用药和一次大概吃多少，我可以再帮你把建议收窄到更具体的份量。"
+        )
+        sources = [SourceRef(title="饮食咨询建议", excerpt=request.message[:80], source="local_rule")]
+        sources.extend(knowledge_sources)
+        return AgentOutput(agent="diet_query", content=reply, severity=severity, sources=sources, confidence="medium")
+
+    def _match_advice(self, text: str, condition_hint: str) -> tuple[str, Severity]:
+        context = f"{condition_hint} {text}"
+        for diseases, foods, advice in self.AVOID_RULES:
+            if self._contains_any(context, diseases) and self._contains_any(text, foods):
+                return f"建议：{advice}", "yellow"
+        for diseases, foods, advice in self.LIMIT_RULES:
+            if self._contains_any(context, diseases) and self._contains_any(text, foods):
+                return f"建议：{advice}", "green"
+        return (
+            "建议：可以先按“少量、清淡、观察指标变化”的原则处理；如果这种食物高盐、高糖、高脂或高嘌呤，就要更谨慎。",
+            "green",
+        )
+
+    @staticmethod
+    def _contains_any(text: str, words: Sequence[str]) -> bool:
+        return any(word in text for word in words)
+
+    @staticmethod
+    def _condition_hint(text: str, profile: Profile) -> str:
+        profile_text = " ".join([profile.condition_description, *profile.conditions])
+        return f"{profile_text} {text}"
+
+    @staticmethod
+    def _profile_note(profile: Profile) -> str:
+        notes: List[str] = []
+        if profile.conditions:
+            notes.append(f"我会同时参考你档案里的病史：{'、'.join(profile.conditions)}。")
+        if profile.medications:
+            notes.append(f"你当前记录的用药有：{'、'.join(profile.medications)}，饮食调整不要自行替代药物。")
+        if profile.allergies:
+            notes.append(f"你记录的过敏史有：{'、'.join(profile.allergies)}，相关食物也要避开。")
+        return (" " + " ".join(notes) + " ") if notes else " "
 
 
 class Orchestrator:
@@ -443,17 +790,19 @@ class Orchestrator:
         *,
         safety_gate: SafetyGate | None = None,
         classifier: IntentClassifier | None = None,
-        profile_store: ProfileStore | None = None,
+        profile_store: ProfileRepository | None = None,
         memory: ConversationMemory | None = None,
         agent_config_store: AgentConfigStore | None = None,
         chat_client: OpenAICompatibleChatClient | None = None,
+        knowledge_retriever: KnowledgeRetriever | None = None,
     ) -> None:
         self.safety_gate = safety_gate or SafetyGate()
         self.classifier = classifier or IntentClassifier()
-        self.profile_store = profile_store or ProfileStore()
+        self.profile_store = profile_store or create_profile_store()
         self.memory = memory or ConversationMemory()
         self.agent_config_store = agent_config_store or AgentConfigStore()
         self.chat_client = chat_client or OpenAICompatibleChatClient()
+        self.knowledge_retriever = knowledge_retriever or KnowledgeRetriever()
         self.symptom_agent = SymptomAgent(
             self._load_agent_config("symptom-analysis-agent.json"),
             self.chat_client,
@@ -466,6 +815,7 @@ class Orchestrator:
             self._load_agent_config("diagnosis-guidance-agent.json"),
             self.chat_client,
         )
+        self.diet_agent = DietAgent()
         self.general_agent = GeneralAgent()
 
     def _load_agent_config(self, filename: str) -> AgentConfig | None:
@@ -507,7 +857,10 @@ class Orchestrator:
             return envelope(0, "ok", response.to_dict(), disclaimer=self._disclaimer())
 
         intent = self.classifier.classify(request.message, emergency=False)
-        agent_output = self._route(intent, request, profile, history)
+        knowledge_sources = self.knowledge_retriever.retrieve(request.message)
+        if knowledge_sources:
+            history = [{"role": "system", "content": render_knowledge_prompt(knowledge_sources)}, *history]
+        agent_output = self._route(intent, request, profile, history, knowledge_sources)
         response = ChatResponse(
             session_id=request.session_id,
             user_id=request.user_id,
@@ -527,20 +880,23 @@ class Orchestrator:
         request: ChatRequest,
         profile: Profile,
         history: List[Dict[str, str]],
+        knowledge_sources: Sequence[SourceRef] = (),
     ) -> AgentOutput:
         if intent == "symptom_analysis":
-            return self.symptom_agent.run(request, profile, history)
+            return self.symptom_agent.run(request, profile, history, knowledge_sources)
         if intent == "medication_query":
-            return self.medication_agent.run(request, profile, history)
+            return self.medication_agent.run(request, profile, history, knowledge_sources)
         if intent == "diagnosis_query":
-            return self.diagnosis_agent.run(request, profile, history)
+            return self.diagnosis_agent.run(request, profile, history, knowledge_sources)
+        if intent == "diet_query":
+            return self.diet_agent.run(request, profile, history, knowledge_sources)
         if intent == "mixed_query":
-            symptom_result = self.symptom_agent.run(request, profile, history)
-            med_result = self.medication_agent.run(request, profile, history)
+            symptom_result = self.symptom_agent.run(request, profile, history, knowledge_sources)
+            med_result = self.medication_agent.run(request, profile, history, knowledge_sources)
             return self._merge_results([symptom_result, med_result])
         if intent == "profile_management":
-            return self.general_agent.run(request, profile, history)
-        return self.general_agent.run(request, profile, history)
+            return self.general_agent.run(request, profile, history, knowledge_sources)
+        return self.general_agent.run(request, profile, history, knowledge_sources)
 
     @staticmethod
     def _merge_results(results: Sequence[AgentOutput]) -> AgentOutput:
@@ -596,10 +952,11 @@ class Orchestrator:
             {
                 "status": "healthy",
                 "dependencies": {
-                    "profile_store": True,
+                    "profile_store": self.profile_store.is_available(),
+                    "profile_store_backend": os.getenv("APP_PROFILE_STORE", "sqlite").strip().lower(),
                     "memory": True,
                     "llm": self._llm_configured(),
-                    "vector_store": False,
+                    "vector_store": self.knowledge_retriever.is_available(),
                 },
                 "timestamp": now_iso(),
             },

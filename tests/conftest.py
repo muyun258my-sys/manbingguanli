@@ -5,3 +5,5 @@ import pytest
 def _isolated_profile_db(tmp_path, monkeypatch):
     """每个测试使用独立的临时 SQLite 档案库，互不干扰、也不污染项目。"""
     monkeypatch.setenv("APP_PROFILE_DB", str(tmp_path / "profiles.db"))
+    monkeypatch.setenv("APP_PROFILE_STORE", "sqlite")
+    monkeypatch.setenv("APP_VECTOR_DB_DIR", str(tmp_path / "vector_db"))
