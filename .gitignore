@@ -1,9 +1,16 @@
 .env
 __pycache__/
 .pytest_cache/
+.pytest-tmp/
 *.pyc
 data/
 .claude
 app/.idea/
 models/embedding/
 vector_db/
+
+# 仓库自身打包产物
+*.zip
+
+# 个人简历生成脚本（含个人信息，与本项目无关）
+scripts/build_wcy_resume*.py

@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional, Protocol, Sequence
 import requests
 
 from .agent_runtime import AgentConfig, AgentConfigError, AgentConfigStore, OpenAICompatibleChatClient
+from .langgraph_runtime import LangChainRuntime, create_langchain_runtime
+from .langgraph_workflow import LangGraphWorkflow
 from .models import (
     AgentOutput,
     ChatRequest,
@@ -962,3 +964,126 @@ class Orchestrator:
             },
             disclaimer=self._disclaimer(),
         )
+
+
+class LangGraphOrchestrator:
+    """Compatibility facade that delegates chat orchestration to LangGraph."""
+
+    def __init__(
+        self,
+        *,
+        safety_gate: SafetyGate | None = None,
+        classifier: IntentClassifier | None = None,
+        profile_store: ProfileRepository | None = None,
+        memory: ConversationMemory | None = None,
+        agent_config_store: AgentConfigStore | None = None,
+        chat_client: OpenAICompatibleChatClient | None = None,
+        knowledge_retriever: KnowledgeRetriever | None = None,
+        runtime: LangChainRuntime | None = None,
+    ) -> None:
+        self.safety_gate = safety_gate or SafetyGate()
+        self.classifier = classifier or IntentClassifier()
+        self.profile_store = profile_store or create_profile_store()
+        self.memory = memory or ConversationMemory()
+        self.runtime = runtime or create_langchain_runtime()
+        if knowledge_retriever is not None:
+            self.runtime.source_retriever = knowledge_retriever
+        self.knowledge_retriever = knowledge_retriever
+        self.symptom_agent = SymptomAgent()
+        self.medication_agent = MedicationAgent()
+        self.diagnosis_agent = DiagnosisAgent()
+        self.diet_agent = DietAgent()
+        self.general_agent = GeneralAgent()
+        self.fallback_agents = {
+            "symptom_analysis": self.symptom_agent,
+            "medication_query": self.medication_agent,
+            "diagnosis_query": self.diagnosis_agent,
+            "diet_query": self.diet_agent,
+            "general_health": self.general_agent,
+        }
+        self.workflow = LangGraphWorkflow(
+            runtime=self.runtime,
+            safety_gate=self.safety_gate,
+            classifier=self.classifier,
+            profile_store=self.profile_store,
+            fallback_agents=self.fallback_agents,
+            merge_results=self._merge_results,
+            profile_prompt_renderer=render_profile_prompt,
+        )
+
+    def chat(self, request: ChatRequest) -> Dict[str, Any]:
+        self.workflow.fallback_agents.update(
+            {
+                "symptom_analysis": self.symptom_agent,
+                "medication_query": self.medication_agent,
+                "diagnosis_query": self.diagnosis_agent,
+                "diet_query": self.diet_agent,
+                "general_health": self.general_agent,
+            }
+        )
+        response = self.workflow.invoke(request)
+        return envelope(0, "ok", response.to_dict(), disclaimer=self._disclaimer())
+
+    @staticmethod
+    def _merge_results(results: Sequence[AgentOutput]) -> AgentOutput:
+        severity_order = {"green": 0, "yellow": 1, "red": 2}
+        highest = max(results, key=lambda item: severity_order[item.severity or "green"])
+        sources = [source for result in results for source in result.sources]
+        confidence: Confidence = "medium"
+        if all(result.confidence == "high" for result in results):
+            confidence = "high"
+        elif any(result.confidence == "low" for result in results):
+            confidence = "low"
+        return AgentOutput(
+            agent="mixed_query" if len(results) > 1 else results[0].agent,
+            content=" ".join(result.content for result in results),
+            severity=highest.severity,
+            sources=sources,
+            confidence=confidence,
+        )
+
+    @staticmethod
+    def _disclaimer() -> str:
+        return "本系统仅供参考，不构成医疗诊断或治疗建议。"
+
+    def get_profile(self, user_id: str) -> Dict[str, Any]:
+        return envelope(0, "ok", self.profile_store.get(user_id).to_dict(), disclaimer=self._disclaimer())
+
+    def update_profile(
+        self,
+        user_id: str,
+        *,
+        conditions: Optional[Sequence[str]] = None,
+        medications: Optional[Sequence[str]] = None,
+        allergies: Optional[Sequence[str]] = None,
+        condition_description: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        profile = self.profile_store.update(
+            user_id,
+            condition_description=condition_description,
+            conditions=conditions,
+            medications=medications,
+            allergies=allergies,
+        )
+        return envelope(0, "ok", profile.to_dict(), disclaimer=self._disclaimer())
+
+    def health(self) -> Dict[str, Any]:
+        return envelope(
+            0,
+            "ok",
+            {
+                "status": "healthy",
+                "dependencies": {
+                    "profile_store": self.profile_store.is_available(),
+                    "profile_store_backend": os.getenv("APP_PROFILE_STORE", "sqlite").strip().lower(),
+                    "memory": True,
+                    "llm": self.runtime.is_llm_configured(),
+                    "vector_store": self.runtime.is_vector_store_available(),
+                },
+                "timestamp": now_iso(),
+            },
+            disclaimer=self._disclaimer(),
+        )
+
+
+Orchestrator = LangGraphOrchestrator

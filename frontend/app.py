@@ -165,6 +165,84 @@ def render_chat() -> None:
                 placeholder.error(f"请求失败：{e}")
 
 
+def render_chat_v2() -> None:
+    st.markdown(
+        """
+        <style>
+        .st-key-chat_panel > [data-testid="stLayoutWrapper"]:has(> .st-key-chat_input_area) {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--background-color);
+            padding: 0.5rem 0 0.75rem;
+        }
+        .st-key-chat_input_area {
+            position: static;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.subheader("对话")
+
+    chat_panel = st.container(key="chat_panel")
+    with chat_panel.container(key="chat_input_area"):
+        with st.form("chat_form", clear_on_submit=True, border=False):
+            input_col, submit_col = st.columns([6, 1])
+            with input_col:
+                prompt = st.text_input(
+                    "提问",
+                    placeholder="请描述您的症状、用药问题或就医疑问…",
+                    label_visibility="collapsed",
+                )
+            with submit_col:
+                submitted = st.form_submit_button("发送", use_container_width=True)
+
+    if submitted and prompt.strip():
+        prompt = prompt.strip()
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        try:
+            with st.spinner("正在处理…"):
+                result = _chat(prompt)
+            data = result.get("data", {})
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": data.get("reply", "（无回复）"),
+                    "severity": data.get("severity"),
+                    "sources": data.get("sources", []),
+                    "disclaimer": result.get("disclaimer", DISCLAIMER),
+                    "emergency": data.get("emergency", False),
+                }
+            )
+        except Exception as e:
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": f"请求失败：{e}",
+                    "disclaimer": DISCLAIMER,
+                }
+            )
+        st.rerun()
+
+    with chat_panel.container(key="chat_history"):
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                if msg.get("emergency"):
+                    st.error("高风险提示：请立即拨打急救电话或前往最近急诊。")
+                if msg.get("severity") and msg["role"] == "assistant":
+                    badge = SEVERITY_BADGE.get(msg["severity"], "")
+                    if badge:
+                        st.markdown(f"**{badge}**")
+                st.markdown(msg["content"])
+                if msg.get("sources"):
+                    with st.expander("引用来源"):
+                        for src in msg["sources"]:
+                            st.markdown(f"- **{src.get('title', '')}** — {src.get('source', '')}")
+                if msg.get("disclaimer"):
+                    st.caption(msg["disclaimer"])
+
+
 def main() -> None:
     st.set_page_config(page_title="慢病健康管理助理", page_icon="🏥", layout="wide")
     st.sidebar.text_input("Backend URL", value=DEFAULT_API_BASE, key="api_base")
@@ -175,7 +253,7 @@ def main() -> None:
 
     col_chat, col_profile = st.columns([2, 1])
     with col_chat:
-        render_chat()
+        render_chat_v2()
     with col_profile:
         render_profile_panel()
 

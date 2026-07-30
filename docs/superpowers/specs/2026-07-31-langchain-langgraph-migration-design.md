@@ -19,7 +19,7 @@ The migration does not add new user-facing endpoints, change the medical policy,
 - `ChatOpenAI` configured for the DeepSeek OpenAI-compatible endpoint and `DEEPSEEK_API_KEY`.
 - A Chroma-backed retriever over the existing persistent `vector_db` collection.
 - Prompt templates for intent classification, symptoms, medication, diagnosis, diet, general health, and response aggregation.
-- Message-history storage keyed by `session_id`, retaining the five most recent turns.
+- LangChain message-history storage keyed by `session_id`, retaining the five most recent turns, with LangGraph `MemorySaver` checkpointing workflow state.
 
 The runtime must be dependency-injectable so unit tests can use fake chat models, retrievers, and histories without external services.
 
@@ -37,7 +37,7 @@ The graph proceeds as follows:
 6. Aggregate responses, taking the highest severity and the most conservative recommendation when outputs conflict.
 7. Persist user and assistant messages for successful non-emergency replies, then generate the existing response envelope.
 
-Professional-agent nodes use `ChatPromptTemplate | ChatOpenAI | StrOutputParser`. Retrieved documents are rendered into their prompt context. The response format remains compatible with the existing API: reply, intent, severity, emergency flag, sources, and disclaimer.
+Professional-agent nodes use `ChatPromptTemplate | ChatOpenAI | StrOutputParser` with the stored LangChain history supplied as prompt messages. Retrieved documents are rendered into their prompt context. The response format remains compatible with the existing API: reply, intent, severity, emergency flag, sources, and disclaimer.
 
 ## Fallback and Error Handling
 
