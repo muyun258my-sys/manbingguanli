@@ -177,6 +177,12 @@ def load_pdf_chunks(
 
 class LocalEmbeddingClient:
     def __init__(self, model_name: str, cache_dir: Path | str) -> None:
+        # 模型已固定缓存于本地（models/embedding）。强制 HuggingFace 离线模式，
+        # 避免加载时向 huggingface.co 发起网络检查（国内网络连接超时 + 5 次
+        # 指数退避重试会把模型加载拖到 60s+，导致 /chat 读取超时）。
+        # app/__init__.py 已在进程最早期设置过，这里再做一次兜底。
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        os.environ["TRANSFORMERS_OFFLINE"] = "1"
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as exc:

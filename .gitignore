@@ -14,3 +14,6 @@ vector_db/
 
 # 个人简历生成脚本（含个人信息，与本项目无关）
 scripts/build_wcy_resume*.py
+
+# 本地工具目录
+.workbuddy/

@@ -1,4 +1,23 @@
+import os
+import tempfile
+from pathlib import Path
+
 import pytest
+
+# ── 模块级隔离（在导入任何被测模块之前生效）───────────────────────────────
+# app.app 在模块导入时会实例化 Orchestrator，若此时环境变量未设置，可能
+# 读取项目根 .env、创建真实 LLM 客户端或触碰项目 data/ 目录。
+# 这里在 pytest 收集阶段最先兜底，确保测试进程内默认关闭 LLM 与外部依赖。
+os.environ.setdefault("APP_LLM_ENABLED", "false")
+os.environ.setdefault("APP_PROFILE_STORE", "sqlite")
+os.environ.setdefault(
+    "APP_PROFILE_DB",
+    str(Path(tempfile.gettempdir()) / "xm2_test_profiles.db"),
+)
+os.environ.setdefault(
+    "APP_VECTOR_DB_DIR",
+    str(Path(tempfile.gettempdir()) / "xm2_test_vector_db_nonexistent"),
+)
 
 
 @pytest.fixture(autouse=True)

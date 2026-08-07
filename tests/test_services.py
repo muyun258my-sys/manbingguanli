@@ -1,16 +1,23 @@
 import pytest
 import types
 import sys
+from app.models import AgentOutput
 from app.models import ChatRequest
+from app.models import Profile
 from app.models import SourceRef
 from app.services import (
+    ConfiguredLLMAgent,
     ConversationMemory,
+    DietAgent,
     IntentClassifier,
+    LangGraphOrchestrator,
     Orchestrator,
     MySQLProfileStore,
     ProfileStore,
     SafetyGate,
+    render_knowledge_prompt,
 )
+from app.agent_runtime import AgentConfig, OpenAICompatibleChatClient
 
 
 class StubKnowledgeRetriever:
@@ -68,7 +75,7 @@ def test_chat_returns_pdf_sources_from_retriever():
         source="shujuku/guidelines/gaoxueya.pdf#page=1",
     )
     orc = Orchestrator(knowledge_retriever=StubKnowledgeRetriever([source]))
-    resp = orc.chat(ChatRequest(session_id="s_pdf", user_id="u_pdf", message="鏈€杩戝ご鏅曪紝琛€鍘?160/100"))
+    resp = orc.chat(ChatRequest(session_id="s_pdf", user_id="u_pdf", message="最近头晕，血压 160/100"))
     sources = resp["data"]["sources"]
     assert any(item["title"] == "gaoxueya.pdf" for item in sources)
 
@@ -318,3 +325,147 @@ def test_profile_hint_in_reply():
     orc.update_profile("u_hint", conditions=["高血压"])
     resp = orc.chat(ChatRequest(session_id="s_hint", user_id="u_hint", message="最近头晕乏力"))
     assert "高血压" in resp["data"]["reply"]
+
+
+# ── knowledge prompt rendering ───────────────────────────────────────────────
+
+def test_render_knowledge_prompt_empty():
+    assert render_knowledge_prompt([]) == ""
+
+
+def test_render_knowledge_prompt_lists_sources_in_order():
+    sources = [
+        SourceRef(title="guide-a.pdf", excerpt="片段甲", source="shujuku/guide-a.pdf#page=1"),
+        SourceRef(title="guide-b.pdf", excerpt="片段乙", source="shujuku/guide-b.pdf#page=2"),
+    ]
+    prompt = render_knowledge_prompt(sources)
+    assert "[1] guide-a.pdf" in prompt
+    assert "[2] guide-b.pdf" in prompt
+    assert "片段甲" in prompt
+    assert "do not claim they are a diagnosis" in prompt
+
+
+# ── result aggregation ───────────────────────────────────────────────────────
+
+def test_merge_results_takes_most_conservative_severity():
+    outputs = [
+        AgentOutput(agent="symptom_analysis", content="甲", severity="green"),
+        AgentOutput(agent="diagnosis_query", content="乙", severity="red"),
+    ]
+    merged = LangGraphOrchestrator._merge_results(outputs)
+    assert merged.severity == "red"
+    assert merged.agent == "mixed_query"
+
+
+def test_merge_results_joins_content_and_sources():
+    s1 = SourceRef(title="a.pdf", excerpt="x", source="a.pdf#page=1")
+    s2 = SourceRef(title="b.pdf", excerpt="y", source="b.pdf#page=2")
+    outputs = [
+        AgentOutput(agent="a", content="甲", severity="green", sources=[s1], confidence="high"),
+        AgentOutput(agent="b", content="乙", severity="yellow", sources=[s2], confidence="high"),
+    ]
+    merged = LangGraphOrchestrator._merge_results(outputs)
+    assert merged.content == "甲 乙"
+    assert [s.title for s in merged.sources] == ["a.pdf", "b.pdf"]
+    assert merged.confidence == "high"
+
+
+def test_merge_results_low_confidence_wins():
+    outputs = [
+        AgentOutput(agent="a", content="甲", severity="green", confidence="low"),
+        AgentOutput(agent="b", content="乙", severity="yellow", confidence="high"),
+    ]
+    assert LangGraphOrchestrator._merge_results(outputs).confidence == "low"
+
+
+def test_merge_results_single_result_keeps_agent_name():
+    output = AgentOutput(agent="symptom_analysis", content="甲", severity="yellow")
+    merged = LangGraphOrchestrator._merge_results([output])
+    assert merged.agent == "symptom_analysis"
+
+
+# ── diet agent rules ─────────────────────────────────────────────────────────
+
+def test_diet_agent_avoid_rule_for_high_salt():
+    agent = DietAgent()
+    request = ChatRequest(session_id="s", user_id="u", message="高血压可以吃咸菜吗")
+    profile = Profile(user_id="u", conditions=["高血压"])
+    output = agent.run(request, profile, [])
+    assert output.agent == "diet_query"
+    assert output.severity == "yellow"
+    assert "少吃" in output.content or "避免" in output.content
+
+
+def test_diet_agent_limit_rule_for_watermelon():
+    agent = DietAgent()
+    request = ChatRequest(session_id="s", user_id="u", message="糖尿病能吃西瓜吗")
+    profile = Profile(user_id="u", conditions=["糖尿病"])
+    output = agent.run(request, profile, [])
+    assert output.severity == "green"
+    assert "少量" in output.content
+
+
+def test_diet_agent_generic_advice_when_no_rule_matches():
+    agent = DietAgent()
+    request = ChatRequest(session_id="s", user_id="u", message="今天吃什么比较好")
+    profile = Profile(user_id="u")
+    output = agent.run(request, profile, [])
+    assert output.severity == "green"
+    assert "建议" in output.content
+
+
+def test_diet_agent_mentions_profile_medications():
+    agent = DietAgent()
+    request = ChatRequest(session_id="s", user_id="u", message="高血压可以吃咸菜吗")
+    profile = Profile(user_id="u", conditions=["高血压"], medications=["氨氯地平"])
+    output = agent.run(request, profile, [])
+    assert "氨氯地平" in output.content
+
+
+# ── ConfiguredLLMAgent ───────────────────────────────────────────────────────
+
+def test_configured_llm_agent_returns_none_when_key_missing():
+    config = AgentConfig("demo", "https://api.example.com", "NOPE_ENV_KEY", "m", 0.2, False, "sys")
+    agent = ConfiguredLLMAgent(
+        config,
+        OpenAICompatibleChatClient(),
+        output_agent="demo",
+        fallback_severity="yellow",
+        fallback_confidence="medium",
+    )
+    output = agent.run_llm(ChatRequest(session_id="s", user_id="u", message="hi"), Profile(user_id="u"), [])
+    assert output is None
+
+
+# ── LangGraphOrchestrator 兼容层 ─────────────────────────────────────────────
+
+def test_langgraph_orchestrator_profile_roundtrip():
+    orc = LangGraphOrchestrator()
+    orc.update_profile("u_lg", conditions=["冠心病"], medications=["阿司匹林"])
+    profile = orc.get_profile("u_lg")["data"]
+    assert profile["conditions"] == ["冠心病"]
+    assert profile["medications"] == ["阿司匹林"]
+
+
+def test_langgraph_orchestrator_health_reports_llm_disabled():
+    orc = LangGraphOrchestrator()
+    dependencies = orc.health()["data"]["dependencies"]
+    assert dependencies["llm"] is False
+    assert dependencies["profile_store_backend"] == "sqlite"
+    assert dependencies["memory"] is True
+
+
+def test_langgraph_orchestrator_chat_persists_history_across_turns():
+    orc = LangGraphOrchestrator()
+    orc.chat(ChatRequest(session_id="s_multi", user_id="u_multi", message="你好"))
+    orc.chat(ChatRequest(session_id="s_multi", user_id="u_multi", message="最近头晕"))
+    history = orc.runtime.history_store.get("s_multi").messages
+    assert len(history) == 4  # 两轮 × (user + assistant)
+
+
+def test_langgraph_orchestrator_emergency_skips_history_persist():
+    orc = LangGraphOrchestrator()
+    resp = orc.chat(ChatRequest(session_id="s_em", user_id="u_em", message="突然晕厥"))
+    assert resp["data"]["emergency"] is True
+    assert len(orc.runtime.history_store.get("s_em").messages) == 0
+
